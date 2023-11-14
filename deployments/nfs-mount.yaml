@@ -1,0 +1,25 @@
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: fa
+spec:
+  selector:
+    app: fa
+  # Add the server as an NFS volume for the pod
+  volumes:
+    - name: business-software
+      nfs:
+        # URL for the NFS server
+        server: 172.18.125.65 # Change this!
+        path: /
+
+  # In this container, we'll mount the NFS volume
+  # and write the date to a file inside it.
+  containers:
+    - name: fa
+      image: r.ellis-chentech.com:5000/fa:local
+      # Mount the NFS volume in the container
+      volumeMounts:
+        - name: business-software
+          mountPath: /opt/ellis-chen/softwares

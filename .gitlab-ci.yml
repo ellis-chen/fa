@@ -1,0 +1,113 @@
+image: hub.ellis-chentech.com/tools/go-builder:1.21r
+
+stages:
+  - test
+  - build
+  - release
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://localhost:2376
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_VERIFY: 1
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  GOPATH: $CI_PROJECT_DIR/.go
+  GOCACHE: $CI_PROJECT_DIR/.go-build
+  GOPROXY: https://goproxy.cn,direct
+  TEST_IGNORE: 'true'
+
+.go-cache:
+  cache:
+    key: go1.21
+    paths:
+      - .go/pkg/mod/
+      - $GOPATH
+      - bin/golangci-lint
+  tags:
+    - container
+
+.release:
+  extends: .go-cache
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^(master|main)$/'
+    - if: '$CI_COMMIT_TAG =~ /^\d{2}\.\d{2}.*/'
+    - if: '$CI_COMMIT_REF_NAME =~ /^v?(\d+(?:\.\d+)*)$/'
+    - if: '$CI_COMMIT_REF_NAME =~ /^release\/.*/'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME =~ /^topic\/.*/'
+      when: manual
+
+.wait-for-docker: &wait-for-docker
+  - |
+    for i in $(seq 1 30); do
+      if ! docker info &> /dev/null; then
+          echo "Docker not responding yet. Sleeping for 2s..." && sleep 2s
+      else
+          echo "Docker ready. Continuing build..."
+          break
+      fi
+    done
+
+
+test-short:
+  stage: test
+  extends: .go-cache
+  script:
+  - make test
+
+test race:
+  stage: test
+  extends: .go-cache
+  script:
+  - make test-race
+
+build:
+  stage: build
+  extends: .go-cache
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - when: always
+  script:
+    - make V=1 compile
+  artifacts:
+    name: fa
+    paths:
+      - bin/*
+    expire_in: 1 week
+
+publish exe:
+  stage: release
+  extends: .release
+  script:
+    - make V=1 release
+  dependencies:
+    - build
+
+publish image:
+  stage: release
+  extends: .release
+  services:
+    - hub.ellis-chentech.com/tools/docker:20-dind
+  before_script:
+    - *wait-for-docker
+  script:
+    - docker login -u $HUB_USER -p $HUB_PASSWD  $HUB_URL
+    - make img
+  dependencies:
+    - build
+
+deploy to cc k8s:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^(master|main)$/'
+  variables:
+    UPSTREAM_PROJECT_NAME: fa
+    UPSTREAM_NAMESPACE: fa
+  trigger:
+    project: ellis-chen/delivery-cc
+    branch: topic/hsx
+    strategy: depend
+

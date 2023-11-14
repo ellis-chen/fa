@@ -1,0 +1,21 @@
+{
+    "gitlab.instanceUrl": "https://github.com:8443",
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+        "--fast"
+    ],
+    "go.lintOnSave": "package",
+    "go.toolsEnvVars": {
+        "GOOS": "linux",
+        "GOPRIVARE": "https://github.com",
+        "GOPROXY": "https://goproxy.cn,direct",
+        "GONOPROXY": "none;",
+        "GONOSUMDB": "github.com",
+        "GOFLAGS": "-tags=kopia"
+    },
+    "go.testFlags": [
+        "-count=1",
+        "-v",
+    ],
+    "editor.multiCursorModifier": "alt",
+}

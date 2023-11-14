@@ -1,0 +1,6 @@
+FROM juicedata/mount
+
+RUN apt install -y jq
+COPY deployments/juicefs-mount.sh /docker-entrypoint.sh
+
+ENTRYPOINT [ "/docker-entrypoint.sh" ]

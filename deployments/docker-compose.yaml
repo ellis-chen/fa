@@ -1,0 +1,43 @@
+version: '3'
+services:
+  fa:
+    image: r.ellis-chentech.com:5000/fa:local
+    ports:
+      - "8080:80"
+    networks:
+      - br-net
+    environment:
+      - FA_ENABLE_FCCE_MODE=true
+      - FA_JWT_SECRET=${FA_JWT_SECRET}
+      - FA_DEBUG=true
+    volumes:
+      - ${FA_STORE_PATH}:/ellis-chen
+      - ${FA_STORE_MNT_PATH}:/ellis-chen-mnt
+
+  gw:
+    image: hub.ellis-chentech.com/cce/fs-gateway:master
+    ports:
+      - "8081:80"
+    depends_on:
+      - fa
+    networks:
+      - br-net
+    environment:
+      - MASTER_PRIVATE_IP=10.0.1.133
+      - FA_JWT_SECRET=${FA_JWT_SECRET}
+      - FA_DEBUG=true
+      - ENABLE_AUDIT_CHECK=true
+      - ENABLE_STORAGE_CHECK=true
+      - ENABLE_8080_DOWNLOAD=true
+
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.254.254.0/24
+
+  br-net:
+    driver: bridge

@@ -1,0 +1,80 @@
+version: "3.7"
+services:
+  app:
+    build:
+      dockerfile: build/Dockerfile.lite
+    restart: always
+    ports:
+      - "8080:80"
+    cap_add:
+      - NET_ADMIN
+      - MKNOD
+      - SYS_PTRACE
+    security_opt:
+      # https://docs.docker.com/engine/security/apparmor/
+      - seccomp:unconfined
+    environment:
+      - FA_DEBUG=true
+      - FA_JWT_SECRET=JWTSuperSecretKey
+      - FA_ENABLE_BALANCE_CHECK=false
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - ellis-chen:/ellis-chen
+
+  gateway:
+    image: hub.ellis-chentech.com/cce/fs-gateway:latest
+    restart: always
+    container_name: gateway
+    environment:
+      - JWT_SECRET=JWTSuperSecretKey
+      - MASTER_PRIVATE_IP=localhost
+      - ENABLE_STORAGE_CHECK=false # for prodution env, this env should be omitted
+      - ENABLE_AUDIT_CHECK=false # for prodution env, this env should be omitted
+      - ENABLE_8080_DOWNLOAD=true
+    command: sh -c 'while [ 1 ]; do sleep 3600; done'
+    ports:
+      - "80:80"
+      - "8000:8000"
+    volumes:
+      - ellis-chen:/www/data/
+
+  prometheus:
+    image: prom/prometheus:v2.32.1
+    user: root
+    volumes:
+      - "./assets/etc/prometheus/:/etc/prometheus/"
+      - "./tmp/prometheus/prometheus_data:/prometheus"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    user: root
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./tmp/grafana/grafana_data:/var/lib/grafana"
+      - "./assets/etc/grafana/provisioning/:/etc/grafana/provisioning/"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=foobar
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+  cadvisor:
+    image: google/cadvisor:latest
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - 8081:8080
+
+volumes:
+  ellis-chen:

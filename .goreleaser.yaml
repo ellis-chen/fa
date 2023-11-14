@@ -1,0 +1,186 @@
+project_name: fa
+
+release:
+  prerelease: auto
+  extra_files:
+    - glob: "./bin/*.exe"
+
+before:
+  hooks:
+    - go mod tidy
+    - make manpage
+
+builds:
+  - <<: &build_defaults
+      main: .
+      binary: bin/fa
+      env:
+        - CGO_ENABLED=0
+      ldflags:
+        - -s -w -X github.com/ellis-chen/fa/cmd.Version={{.Version}} -X github.com/ellis-chen/fa/cmd.BuildTime={{time "2006-01-02"}}
+    id: macos
+    goos: [darwin]
+    goarch: [amd64, arm64]
+
+  - <<: *build_defaults
+    id: linux
+    goos: [linux]
+    goarch: ["386", arm, amd64, arm64]
+
+  # - <<: *build_defaults
+  #   id: windows
+  #   goos: [windows]
+  #   goarch: ["386", amd64]
+
+# dockers:
+#   - image_templates:
+#       - "registry.gitlab.com/gitlab-org/cli:{{ .Tag }}-amd64"
+#       - "gitlab/glab:{{ .Tag }}-amd64"
+#       - "profclems/glab:{{ .Tag }}-amd64"
+#     dockerfile: Dockerfile
+#     use: buildx
+#     build_flag_templates:
+#       - "--pull"
+#       - "--label=org.opencontainers.image.created={{.Date}}"
+#       - "--label=org.opencontainers.image.name={{.ProjectName}}"
+#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#       - "--label=org.opencontainers.image.version={{.Version}}"
+#       - "--label=org.opencontainers.image.source={{.GitURL}}"
+#       - "--platform=linux/amd64"
+#     extra_files:
+#       - scripts/entrypoint.sh
+#   - image_templates:
+#       - "registry.gitlab.com/gitlab-org/cli:{{ .Tag }}-arm64"
+#       - "gitlab/glab:{{ .Tag }}-arm64"
+#       - "profclems/glab:{{ .Tag }}-arm64"
+#     dockerfile: Dockerfile
+#     use: buildx
+#     build_flag_templates:
+#       - "--pull"
+#       - "--label=org.opencontainers.image.created={{.Date}}"
+#       - "--label=org.opencontainers.image.name={{.ProjectName}}"
+#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#       - "--label=org.opencontainers.image.version={{.Version}}"
+#       - "--label=org.opencontainers.image.source={{.GitURL}}"
+#       - "--platform=linux/arm64"
+#     goarch: arm64
+#     extra_files:
+#       - scripts/entrypoint.sh
+# docker_manifests:
+#   - name_template: "registry.gitlab.com/gitlab-org/cli:{{ .Tag }}"
+#     image_templates:
+#       - "registry.gitlab.com/gitlab-org/cli:{{ .Tag }}-amd64"
+#       - "registry.gitlab.com/gitlab-org/cli:{{ .Tag }}-arm64"
+#   - name_template: "registry.gitlab.com/gitlab-org/cli:latest"
+#     image_templates:
+#       - "registry.gitlab.com/gitlab-org/cli:{{ .Tag }}-amd64"
+#       - "registry.gitlab.com/gitlab-org/cli:{{ .Tag }}-arm64"
+#   - name_template: "gitlab/glab:{{ .Tag }}"
+#     image_templates:
+#       - "gitlab/glab:{{ .Tag }}-amd64"
+#       - "gitlab/glab:{{ .Tag }}-arm64"
+#   - name_template: "gitlab/glab:latest"
+#     image_templates:
+#       - "gitlab/glab:{{ .Tag }}-amd64"
+#       - "gitlab/glab:{{ .Tag }}-arm64"
+#   - name_template: "profclems/glab:{{ .Tag }}"
+#     image_templates:
+#       - "profclems/glab:{{ .Tag }}-amd64"
+#       - "profclems/glab:{{ .Tag }}-arm64"
+#   - name_template: "profclems/glab:latest"
+#     image_templates:
+#       - "profclems/glab:{{ .Tag }}-amd64"
+#       - "profclems/glab:{{ .Tag }}-arm64"
+
+archives:
+  - id: nix
+    builds: [macos, linux]
+    <<: &archive_defaults
+      name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+      wrap_in_directory: false
+    format: tar.gz
+    replacements:
+      darwin: macOS
+      linux: Linux
+      <<: &arch_replacemens
+        386: i386
+        amd64: x86_64
+
+  - id: windows
+    builds: [windows]
+    <<: *archive_defaults
+    format: zip
+    replacements:
+      windows: Windows
+      <<: *arch_replacemens
+
+nfpms:
+  - id: pkgs
+    package_name: fa
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+    replacements:
+      amd64: x86_64
+      386: i386
+      darwin: macOS
+      linux: Linux
+    vendor: GitLab
+    homepage: https://github.com:8443/ellis-chen/fa
+    maintainer: neo.chen<neo.chen@ellis-chentech.com>
+    description: The 'fa' tool is used to provide a union file access tools for ellis-chen product
+    license: MIT
+    formats:
+      - apk
+      - deb
+      - rpm
+    dependencies:
+      - git
+    bindir: /usr
+    contents:
+      - src: "./share/man/man1/fa*.1"
+        dst: "/usr/share/man/man1"
+
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ .Tag }}"
+changelog:
+  sort: asc
+  groups:
+  - title: Features
+    regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+    order: 0
+  - title: 'Bug fixes'
+    regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+    order: 1
+  - title: Others
+    order: 999
+  filters:
+    exclude:
+      - >
+        ^docs(\(.*\))*:
+      - >
+        ^test(\(.*\))*:
+      - "^Merge branch"
+      - "^chore"
+      - "^Update README.md"
+
+gitlab_urls:
+  api: https://github.com:8443/
+  download: https://github.com:8443/
+  skip_tls_verify: false
+  use_package_registry: false
+  use_job_token: true
+
+blobs:
+  -
+    provider: s3
+    region: cn-northwest-1
+    disableSSL: true
+    bucket: neo-tools
+    ids:
+    - linux
+    - macos
+    - pkgs
+    - nix
+    - windows

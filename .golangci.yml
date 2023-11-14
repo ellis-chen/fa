@@ -1,0 +1,125 @@
+# golangci-lint configuration options
+
+linters:
+  enable:
+    # - deadcode
+    - errcheck
+    - goimports
+    - ineffassign
+    - varcheck
+    - govet
+    - unconvert
+    - prealloc
+    - tenv
+    - errchkjson
+    - errname
+    - errorlint
+    # - asasalint
+    - asciicheck
+    - bidichk
+    # - containedctx
+    # - cyclop
+    # - depguard
+    - dogsled
+    - dupl
+    - durationcheck
+    - execinquery
+    - exhaustive
+    # - exhaustivestruct
+    # - exhaustruct
+    - exportloopref
+    - forbidigo
+    # - forcetypeassert
+    # - funlen
+    # - gci
+    # - gochecknoglobals
+    # - gochecknoinits
+    # - gocognit
+    # - goconst
+    # - gocritic
+    # - gocyclo
+    # - godot
+    - godox
+    # - goerr113
+    # - gofmt
+    # - gofumpt
+    # - goheader
+    # - golint
+    # - gomnd
+    # - gomoddirectives
+    # - gomodguard
+    # - goprintffuncname
+    # - gosec
+    # - gosimple
+    # - grouper
+    # - ifshort
+    # - importas
+    # - ineffassign
+    # - interfacer
+    # - ireturn
+    # - lll
+    # - maintidx
+    # - makezero
+    # - maligned
+    # - misspell
+    # - nakedret
+    # - nestif
+    # - nilnil
+    # - nlreturn
+    - nolintlint
+    # - nonamedreturns
+    # - nosnakecase
+    - nosprintfhostport
+    # - paralleltest
+    # - predeclared
+    # - promlinter
+    # - revive
+    # - rowserrcheck
+    - exportloopref
+    # - sqlclosecheck
+    # - staticcheck
+    # - structcheck
+    # - stylecheck
+    # - tagliatelle
+    # - testpackage
+    # - thelper
+    # - tparallel
+    # - typecheck
+    # - unconvert
+    # - unparam
+    # - unused
+    # - varcheck
+    # - varnamelen
+    # - wastedassign
+    - whitespace
+    # - wrapcheck
+    # - wsl
+  govet:
+    - fieldalignment
+  disable-all: true
+
+govet:
+    enable:
+      - fieldalignment
+
+issues:
+  # Enable some lints excluded by default
+  # exclude-use-default: false
+
+  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
+  max-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-same-issues: 0
+
+run:
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  timeout: 10m
+
+  modules-download-mode: vendor
+
+  skip-dirs:
+    - pkg
+
+  build-tags:
+    - kopia

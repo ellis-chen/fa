@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: juicefs-destroy-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: juicefs-destroy-job
+        image: hub.ellis-chentech.com/tools/juicefs-mount:v1.0.1
+        args: ["-d", "tikv://$(TIKV_META_HOST)/$(TENANT_ID)"]
+        env:
+        - name: TIKV_META_HOST
+          value: "tikv pd ip clusters"
+        - name: TENANT_ID
+          value: "tenant id"
+      restartPolicy: Never

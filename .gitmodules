@@ -1,0 +1,5 @@
+[submodule "submodules/api-contract"]
+path = submodules/api-contract
+url = ../api-contract.git
+	branch = master
+	update = merge

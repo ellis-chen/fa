@@ -1,0 +1,491 @@
+version: "3"
+services:
+  api:
+    image: "r.ellis-chentech.com:5000/ellis-chen-api${IMAGE_TAG}"
+    container_name: ellis-chen-api
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    volumes:
+      - /ellis-chen:/ellis-chen:rshared
+      - ${ellis-chen_MNT_DIR}:${ellis-chen_MNT_DIR}:rshared
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/api/provisioning:${ellis-chen_SERVICES_DIR}/ellis-chen/api/provisioning
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/api/logs:/var/log/ellis-chen
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/api/data:/root/h2
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+      - /home/ellis-chen/.ssh/id_rsa:/home/ellis-chen/.ssh/id_rsa:ro
+    environment:
+      - api.ldap.home-directory=${LDAP_USER_HOME_DIRECTORY}
+      - api.ldap.login-shell=${LDAP_USER_LOGIN_SHELL}
+      - api.version=${API_VERSION}
+      - api.fsCloudCode=${FS_CLOUD_CODE}
+      - api.cloudVendor=${CLOUD_VENDOR}
+      - cloud.enabled=${CLOUD_ENABLED}
+      - jwt.secret=${FA_JWT_SECRET}
+      - budget.username=${ellis-chen_SERVICE_ACCOUNT}
+      - budget.password=${ellis-chen_SERVICE_PASSWD}
+      - scheduler.username=${ellis-chen_SERVICE_ACCOUNT}
+      - scheduler.password=${ellis-chen_SERVICE_PASSWD}
+      - cluster.storageInfos[0].device=${CLUSTER_STORAGEINFOS_DEVICE}
+      - cluster.storageInfos[0].fsType=${CLUSTER_STORAGEINFOS_FSTYPE}
+      - cluster.storageInfos[0].dir=${CLUSTER_STORAGEINFOS_DIR}
+      - cluster.storageInfos[0].option=${CLUSTER_STORAGEINFOS_OPTION}
+      - cluster.storageInfos[1].device=${CLUSTER_STORAGEINFOS_CIFS_DEVICE}
+      - cluster.storageInfos[1].fsType=${CLUSTER_STORAGEINFOS_CIFS_FSTYPE}
+      - cluster.storageInfos[1].dir=${CLUSTER_STORAGEINFOS_CIFS_DIR}
+      - cluster.storageInfos[1].option=${CLUSTER_STORAGEINFOS_CIFS_OPTION}
+      - cluster.storageInfos[1].username=${CLUSTER_STORAGEINFOS_CIFS_USERNAME}
+      - cluster.storageInfos[1].password=${CLUSTER_STORAGEINFOS_CIFS_PASSWORD}
+      - api.authProvider=${AUTH_PROVIDER}
+      - api.licenseMonitor=${LICENSE_MONITOR}
+      - security.authProvider=${AUTH_PROVIDER}
+      - security.ad.ldapUrl=${AD_URL}
+      - security.ad.base=${AD_BASE}
+      - security.ad.domain=${AD_DOMAIN}
+      - spring.ldap.password=${LDAP_PASSWORD}
+      - api.trial-mode=${TRIAL_MODE}
+      - api.maxFileSize=${MAX_FILE_SIZE}
+      # - spring.data.ldap.repositories.enabled=false
+      # - api.schedulers=[${SCHEDULER_SYSTEMS}]
+      # - jasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASS}
+      - api.schedulers=${SCHEDULER_SYSTEMS}
+    depends_on:
+      - db
+
+  ui:
+    image: "r.ellis-chentech.com:5000/ellis-chen-ui${IMAGE_TAG}"
+    container_name: ellis-chen-ui
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    ports:
+      - ${UI_PORTS}
+    depends_on:
+      - api
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/ui/data/:/usr/share/nginx/html/assets/apk/
+
+  #  csagent:
+  #    image: "r.ellis-chentech.com:5000/ellis-chen-cluster-service-agent${IMAGE_TAG}"
+  #    container_name: ellis-chen-csagent
+  #    restart: always
+  #    network_mode: "host"
+  #    logging:
+  #      driver: "json-file"
+  #      options:
+  #        max-size: "10m"
+  #        max-file: "5"
+  #    depends_on:
+  #      - api
+  #    volumes:
+  #      - ${ellis-chen_SERVICES_DIR}/ellis-chen/csagent/logs:/var/log/ellis-chen
+  #      - /etc/resolv.conf:/etc/resolv.conf:ro
+  #      - ${ellis-chen_SERVICES_DIR}/ellis-chen/csagent/config/ellis-chen_accounts.json:/etc/ellis-chen/csagent/ellis-chen_accounts.json
+  #      - /tmp/csagent:/tmp/csagent
+  #    environment:
+  #      - ellis-chen_API_HOST=127.0.0.1:9000
+  #      - ellis-chen_API_USERNAMEOREMAIL=${ellis-chen_SERVICE_ACCOUNT}
+  #      - ellis-chen_API_PASSWORD=${ellis-chen_SERVICE_PASSWD}
+  #      - ellis-chen_CLOUD_ACCOUNT=${ellis-chen_CLOUD_ACCOUNT}
+
+  billing-mgr:
+    image: "r.ellis-chentech.com:5000/billing-mgr${IMAGE_TAG}"
+    container_name: ellis-chen-billing-mgr
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      - api
+      - db
+    environment:
+      - ellis-chen.global.api.username=${ellis-chen_SERVICE_ACCOUNT}
+      - ellis-chen.global.api.password=${ellis-chen_SERVICE_PASSWD}
+      - notification.ellis-chenCsName=${ellis-chen_CS_NAME}
+      - ellis-chen.billing-stack.region=${ellis-chen_REGION}
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/billing-mgr/logs:/var/log/ellis-chen
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/billing-mgr/data:/root/h2
+      - /ellis-chen/data-migrate:/ellis-chen/data-migrate
+      # billing configure folder.
+      - ${ellis-chen_SERVICES_DIR}/billing/conf:/ellis-chen/billing/conf:rshared
+      # billing output folder.
+      - ${ellis-chen_MNT_DIR}/billing/data:/ellis-chen/billing/data:rshared
+    ports:
+      - "5010:5010"
+      - "5011:5011"
+
+  budget:
+    image: "r.ellis-chentech.com:5000/budget${IMAGE_TAG}"
+    container_name: ellis-chen-budget
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      - ellis-chen.billing-stack.deployMode=${ellis-chen_BILLING_STACK_DEPLOY_MODE}
+      - API_USERNAME=${ellis-chen_SERVICE_ACCOUNT}
+      - API_PASSWORD=${ellis-chen_SERVICE_PASSWD}
+      - ellis-chen.global.api.username=${ellis-chen_SERVICE_ACCOUNT}
+      - ellis-chen.global.api.password=${ellis-chen_SERVICE_PASSWD}
+      - ellis-chen.service-users[0].username=${ellis-chen_SERVICE_ACCOUNT}
+      - ellis-chen.service-users[0].password=${ellis-chen_SERVICE_PASSWD}
+      - jasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASS}
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/budget/logs:/var/log/ellis-chen
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/budget/data:/root/h2
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+      - /ellis-chen/data-migrate:/ellis-chen/data-migrate
+      # billing configure folder.
+      - ${ellis-chen_SERVICES_DIR}/billing/conf:/ellis-chen/billing/conf:rshared
+      # billing output folder.
+      - ${ellis-chen_MNT_DIR}/billing/data:/ellis-chen/billing/data:rshared
+    ports:
+      - "4000:4000"
+      - "4001:4001"
+    depends_on:
+      - db
+
+  scheduler:
+    image: "r.ellis-chentech.com:5000/ellis-chen-scheduler${IMAGE_TAG}"
+    container_name: ellis-chen-scheduler
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      - api
+    environment:
+      - scheduler.pam=true
+      - API_USERNAME=${ellis-chen_SERVICE_ACCOUNT}
+      - API_PASSWORD=${ellis-chen_SERVICE_PASSWD}
+      - ellis-chen.service-users[0].username=${ellis-chen_SERVICE_ACCOUNT}
+      - ellis-chen.service-users[0].password=${ellis-chen_SERVICE_PASSWD}
+      # - jasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASS}
+      # - scheduler.systems=[${SCHEDULER_SYSTEMS}]
+      - scheduler.systems=${SCHEDULER_SYSTEMS}
+    volumes:
+      - /ellis-chen:/ellis-chen
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/scheduler/logs:/var/log/ellis-chen
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/scheduler/data:/root/h2
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/ellis-chen/.ssh/id_rsa:/home/ellis-chen/.ssh/id_rsa:ro
+
+  notification:
+    image: "r.ellis-chentech.com:5000/ellis-chen-notification${IMAGE_TAG}"
+    container_name: ellis-chen-notification
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      - api
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/notification/logs:/var/log/ellis-chen
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/notification/templates:/app/resources/templates
+      - ${ellis-chen_MNT_DIR}/billing/data:/ellis-chen/billing/data:rshared
+    # - jasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASS}
+
+  admin:
+    image: "r.ellis-chentech.com:5000/ellis-chen-admin"
+    container_name: ellis-chen-admin
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    ports:
+      - "9200:9200"
+
+  node-exporter:
+    image: "r.ellis-chentech.com:5000/node-exporter"
+    container_name: prometheus-node-exporter
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc
+      - /sys:/host/sys
+      - /:/rootfs:ro,rslave
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)(\
+        $$|/)"
+  #  slurm-exporter:
+  #    image: "r.ellis-chentech.com:5000/prometheus-slurm-exporter${IMAGE_TAG}"
+  #    container_name: prometheus-slurm-exporter
+  #    restart: always
+  #    network_mode: "host"
+  #    logging:
+  #      driver: "json-file"
+  #      options:
+  #        max-size: "10m"
+  #        max-file: "5"
+  #    volumes:
+  #      - /etc/resolv.conf:/etc/resolv.conf:ro
+  #      - /home/ellis-chen/.ssh/id_rsa:/home/ellis-chen/.ssh/id_rsa:ro
+  #  lsf-exporter:
+  #    image: "r.ellis-chentech.com:5000/prometheus-lsf-exporter${IMAGE_TAG}"
+  #    container_name: prometheus-lsf-exporter
+  #    restart: always
+  #    network_mode: "host"
+  #    logging:
+  #      driver: "json-file"
+  #      options:
+  #        max-size: "10m"
+  #        max-file: "5"
+  #    volumes:
+  #      - /etc/resolv.conf:/etc/resolv.conf:ro
+  #      - /home/ellis-chen/.ssh/id_rsa:/home/ellis-chen/.ssh/id_rsa:ro
+
+  slurm-exporter:
+    image: "r.ellis-chentech.com:5000/prometheus-slurm-exporter${IMAGE_TAG}"
+    container_name: prometheus-slurm-exporter
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    volumes:
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+      - /home/ellis-chen/.ssh/id_rsa:/home/ellis-chen/.ssh/id_rsa:ro
+    environment:
+      # Ignore multiple partitions. Use English comma to separate
+      - IGNORE_PARTITIONS=
+
+  #{flexlm-exporter}
+
+  prometheus:
+    image: "r.ellis-chentech.com:5000/prometheus"
+    container_name: prometheus
+    restart: always
+    network_mode: "host"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/prometheus/data:/prometheus
+      - ${ellis-chen_SERVICES_DIR}/prometheus/config:/etc/prometheus
+      - /etc/hosts:/etc/hosts
+      - /etc/resolv.conf:/etc/resolv.conf
+      - /tmp/csagent:/tmp/csagent
+
+  grafana:
+    image: "r.ellis-chentech.com:5000/grafana:8.2"
+    container_name: grafana
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/grafana/data:/var/lib/grafana
+      - ${ellis-chen_SERVICES_DIR}/grafana/plugins:/var/lib/grafana/plugins
+      - ${ellis-chen_SERVICES_DIR}/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_USERS_DEFAULT_THEME=light
+      - GF_SECURITY_ADMIN_PASSWORD=X7Eh@C20pw
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+
+  db:
+    image: r.ellis-chentech.com:5000/postgres:12-alpine
+    container_name: ellis-chen-database
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    command: postgres -c max_connections=${POSTGRES_MAX_CONNECTIONS}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/postgresql/data:/var/lib/postgresql/data
+      - ${ellis-chen_SERVICES_DIR}/postgresql/init:/docker-entrypoint-initdb.d
+
+  cs-exporter:
+    image: "r.ellis-chentech.com:5000/prometheus-cs-exporter${IMAGE_TAG}"
+    container_name: prometheus-cs-exporter
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      - api
+    environment:
+      - ellis-chen_API_HOST=127.0.0.1:9000
+      - ellis-chen_API_USERNAMEOREMAIL=${ellis-chen_SERVICE_ACCOUNT}
+      - ellis-chen_API_PASSWORD=${ellis-chen_SERVICE_PASSWD}
+
+  ellis-chen-storage-mgr:
+    image: "r.ellis-chentech.com:5000/ellis-chen-storage-mgr${IMAGE_TAG}"
+    container_name: ellis-chen-storage-mgr
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    volumes:
+      - /ellis-chen:/ellis-chen:rshared
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/api/logs:/var/log/ellis-chen
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/api/data:/root/h2
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+      - /home/ellis-chen/.ssh/id_rsa:/home/ellis-chen/.ssh/id_rsa:ro
+    environment:
+      - API_USERNAME=${ellis-chen_SERVICE_ACCOUNT}
+      - API_PASSWORD=${ellis-chen_SERVICE_PASSWD}
+      - ellis-chen.service-users[0].username=${ellis-chen_SERVICE_ACCOUNT}
+      - ellis-chen.service-users[0].password=${ellis-chen_SERVICE_PASSWD}
+    depends_on:
+      - db
+      - api
+
+  fa:
+    image: r.ellis-chentech.com:5000/fa:local
+    container_name: fa
+    ports:
+      - "8080:80"
+    environment:
+      - FA_ENABLE_FCCE_MODE=true
+      - FA_JWT_SECRET=${FA_JWT_SECRET}
+      - FA_STORE_MGR_ROOT=${ellis-chen_MNT_DIR}
+      - FA_DEBUG=true
+    volumes:
+      - ${CLUSTER_STORAGEINFOS_DIR}:/ellis-chen
+      - ${ellis-chen_MNT_DIR}:${ellis-chen_MNT_DIR}
+
+  gw:
+    image: openresty/openresty:alpine
+    container_name: gw
+    ports:
+      - "8081:80"
+    depends_on:
+      - fa
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/gateway/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
+      - ${ellis-chen_SERVICES_DIR}/gateway/conf.d:/etc/nginx/conf.d/
+
+  ellis-chen-remote-access:
+    image: "r.ellis-chentech.com:5000/ellis-chen-remote-access${IMAGE_TAG}"
+    container_name: ellis-chen-remote-access
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    volumes:
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/remote-access/logs:/var/log/ellis-chen
+      - /home/ellis-chen/.ssh/id_rsa:/home/ellis-chen/.ssh/id_rsa
+      - /opt/deploy:/opt/deploy
+    environment:
+      - API_USERNAME=${ellis-chen_SERVICE_ACCOUNT}
+      - API_PASSWORD=${ellis-chen_SERVICE_PASSWD}
+    depends_on:
+      - db
+      - ellis-chen-guacd
+
+  ellis-chen-guacd:
+    image: r.ellis-chentech.com:5000/guacd:1.3.0
+    container_name: ellis-chen-guacd
+    network_mode: "host"
+    restart: always
+    environment:
+      - GUACD_LOG_LEVEL=debug
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
+
+  cluster-scheduler:
+    image: "r.ellis-chentech.com:5000/cluster-scheduler${IMAGE_TAG}"
+    container_name: cluster-scheduler
+    restart: always
+    network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
+    volumes:
+      - /ellis-chen:/ellis-chen:rshared
+      - ${ellis-chen_SERVICES_DIR}/ellis-chen/cluster-schedule/logs:/var/log/ellis-chen
+      - /etc/resolv.conf:/etc/resolv.conf:ro
+    environment:
+      - security.authProvider=${AUTH_PROVIDER}
+      - api.authProvider=${AUTH_PROVIDER}
+      - api.fsCloudCode=${FS_CLOUD_CODE}
+      - api.cloudVendor=${CLOUD_VENDOR}
+      - api.host=${MASTER_HOST}
+      # ldap://${api.host}:389
+      - api.auth-info.ldap.uri=${LDAP_URI}
+      - api.slurm-accounting.slurmdbd_host=${SLURM_DBD_HOST}
+      - api.slurm-accounting.slurmdbd_address=${SLURM_DBD_ADDRESS}
+      - api.defaultCIDR=${DEFAULT_CIDR}
+      - api.dataMgrInfo.host=${DATA_MRR_HOST}
+      - grpc.host=${GRPC_HOST}
+
+#https://github.com/docker/compose/issues/4336
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.254.254.0/24

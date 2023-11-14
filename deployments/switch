@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+IFS=$'\n' clusters=($(kubectl config get-contexts --no-headers | awk '{print $2}'))
+active_cluster=$(kubectl config current-context)
+
+for i in ${!clusters[@]}; do
+    :
+    if [ "${clusters[$i]}" == $active_cluster ]; then
+        echo -e "\033[35;1m${clusters[$i]}\033[0m"
+    else
+        echo -e "\033[35;1m[$((i + 1))]\033[35;1m \033[32;1m${clusters[$i]}\033[0m"
+    fi
+done
+
+read -p "Select cluster: " cluster
+
+if [[ -z "$cluster" ]]; then
+    echo -e "\033[35;1mNothing selected"
+    exit 1
+fi
+
+if ((cluster - 1 < ${#clusters[@]})) &&
+    ((cluster > 0)) &&
+    [[ $cluster = *[[:digit:]]* ]]; then
+
+    if [ "${clusters[$cluster - 1]}" == $active_cluster ]; then
+        echo -e "\033[35;1mCluster ${clusters[$cluster - 1]}\033[35;1m: is already active"
+        exit 0
+    fi
+
+    echo -e "\033[36;1mSelected cluster: ${clusters[$cluster - 1]}"
+    kubectl config use-context ${clusters[$cluster - 1]}
+else
+    echo -e "\033[35;1mOops, $cluster is not there"
+    exit 1
+fi

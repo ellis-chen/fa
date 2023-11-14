@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: juicefs-format-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: juicefs-format-job
+        image: hub.ellis-chentech.com/tools/juicefs-mount:v1.0.2
+        args: ["-f", "--storage", "s3", "--bucket", "$(DATA_BUCKET)", "--access-key", "$(ACCESS_KEY)", "--secret-key", "$(SECRET_KEY)", "tikv://$(TIKV_META_HOST)/$(TENANT_ID)", "ellis-chen"]
+        env:
+        - name: TIKV_META_HOST
+          value: "tikv pd ip clusters"
+        - name: DATA_BUCKET
+          value: "bucket where data stores"
+        - name: ACCESS_KEY
+          value: "object storage ak"
+        - name: SECRET_KEY
+          value: "object storage sk"
+        - name: TENANT_ID
+          value: "tenant id"
+      restartPolicy: Never

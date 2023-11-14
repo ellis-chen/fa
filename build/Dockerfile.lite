@@ -1,0 +1,32 @@
+FROM hub.ellis-chentech.com/bases/alpine:3.17 as target
+ARG COMMIT_ID
+ARG PIPELINE_ID
+ARG REF_NAME
+ARG BUILT_TIME
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g'  /etc/apk/repositories && apk update && apk add --no-cache tzdata ca-certificates bash
+COPY --chown=root:root bin/fa /usr/local/bin/
+COPY --chown=root:root build/docker-entrypoint.sh /docker-entrypoint.sh
+COPY --chown=root:root build/debug.sh /debug.sh
+COPY --chown=root:root assets/etc/skel /etc/skel/
+ENV FA_PORT=${FA_PORT:-80} \
+    FA_STORE_PATH=${FA_STORE_PATH:-/ellis-chen} \
+    FA_DEBUG=${FA_DEBUG:-false} \
+    FA_JWT_SECRET=${FA_JWT_SECRET:-changeme} \
+    FA_ACTIVATE_JWT=${FA_ACTIVATE_JWT:-true} \
+    FA_LOG_TERM_MODE=false \
+    TZ=${TZ:-Asia/Shanghai} \
+    GIN_MODE=${GIN_MODE:-release} \
+    JUICE_CACHE_SIZE=${JUICE_CACHE_SIZE:-128}
+WORKDIR $FA_STORE_PATH
+VOLUME [ "/logs"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["fa", "serve"]
+
+EXPOSE 80 2345
+
+# Metadata
+LABEL com.ellis-chentech.container.url="https://github.com:8443/ellis-chen/fa" \
+    com.ellis-chentech.container.commit_id=$COMMIT_ID  \
+    com.ellis-chentech.container.pipeline_id=$PIPELINE_ID  \
+    com.ellis-chentech.containter.ref_name=$REF_NAME \
+    com.ellis-chentech.container.built_time=$BUILT_TIME
